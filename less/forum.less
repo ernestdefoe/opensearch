@@ -1,0 +1,30 @@
+// Small attribution badge shown in the search modal footer on tabs whose
+// search is answered by OpenSearch. Sits outside the .Dropdown-menu lists so
+// it can never be picked up by the modal's keyboard navigation.
+.OpenSearchBadge-section {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 4px 0;
+}
+
+.OpenSearchBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--muted-color);
+  user-select: none;
+}
+
+.OpenSearchBadge-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: #005eb8; // extension brand colour (matches the composer.json icon)
+  color: #fff;
+  font-size: 9px;
+}
