@@ -22,7 +22,8 @@ real search engine instead, and leaves everything else exactly as it was.
   `cat` never quietly matches `car`.
 - **Accent folding.** `jose` finds `José`.
 - **Incremental indexing.** Posting, editing, deleting and renaming keep the index
-  current — you rebuild once at setup, not on a schedule.
+  current — you rebuild once at setup, not on a schedule. Flarum queues that work,
+  so it needs a running queue worker (see below).
 - **Works with your other extensions.** Filters registered against core's searchers
   are mirrored across, so `tag:support` refinement from flarum/tags keeps working.
 
@@ -52,6 +53,21 @@ Then, under **Admin → OpenSearch**:
 
 Do step 3 before step 4. Enabling the driver against an empty index means every
 search returns nothing.
+
+## Keeping the index current
+
+Flarum hands indexing work to its queue. On the default `sync` queue that runs
+inline and there is nothing to configure. If you have set `queue_driver` to Redis
+or the database — which most forums of any size have — **those jobs only run when a
+queue worker is running:**
+
+```bash
+php flarum queue:work
+```
+
+Without one, new and edited posts are queued but never indexed, and search quietly
+serves stale results. This is core Flarum behaviour and applies to every search
+driver, but it is worth stating plainly, because nothing warns you.
 
 ## Rebuilding from the CLI
 
