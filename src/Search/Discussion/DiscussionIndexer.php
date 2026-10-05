@@ -102,6 +102,8 @@ class DiscussionIndexer extends AbstractIndexer
             return $map;
         }
 
+        $full = [];
+
         Post::query()
             ->where('type', 'comment')
             ->whereNull('hidden_at')
@@ -109,15 +111,25 @@ class DiscussionIndexer extends AbstractIndexer
             ->orderBy('discussion_id')
             ->orderBy('number')
             ->select('discussion_id', 'content')
-            ->chunk(2000, function ($posts) use (&$map) {
+            // 🚨 Stops reading once every discussion asked for is full. A
+            // reply re-indexes its discussion, and this used to read the WHOLE
+            // thread's content for a document capped at MAX_CONTENT — on a
+            // 5,000-post thread, every post's body, on every reply.
+            ->chunk(500, function ($posts) use (&$map, &$full, $discussionIds) {
                 foreach ($posts as $p) {
                     $did = (int) $p->discussion_id;
                     $current = $map[$did] ?? '';
                     if (mb_strlen($current) >= self::MAX_CONTENT) {
+                        $full[$did] = true;
                         continue;
                     }
                     $map[$did] = $current.' '.strip_tags((string) $p->content);
+                    if (mb_strlen($map[$did]) >= self::MAX_CONTENT) {
+                        $full[$did] = true;
+                    }
                 }
+
+                return count($full) < count($discussionIds);
             });
 
         foreach ($map as $did => $text) {

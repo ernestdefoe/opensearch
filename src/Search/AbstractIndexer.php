@@ -4,6 +4,7 @@ namespace Ernestdefoe\OpenSearch\Search;
 
 use Ernestdefoe\OpenSearch\OpenSearchConnection;
 use Flarum\Search\IndexerInterface;
+use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Database\Eloquent\Builder;
 use Psr\Log\LoggerInterface;
 
@@ -29,9 +30,15 @@ abstract class AbstractIndexer implements IndexerInterface
     /** Documents per _bulk request. */
     protected const BULK_SIZE = 100;
 
+    /**
+     * How long a confirmed index is trusted before it is checked again.
+     */
+    protected const EXISTS_TTL = 600;
+
     public function __construct(
         protected OpenSearchConnection $opensearch,
-        protected LoggerInterface $log
+        protected LoggerInterface $log,
+        protected Cache $cache
     ) {
     }
 
@@ -109,6 +116,8 @@ abstract class AbstractIndexer implements IndexerInterface
             return;
         }
 
+        $this->cache->forget($this->existsKey());
+
         try {
             $this->opensearch->request('DELETE', '/'.$this->indexName());
         } catch (\Throwable $e) {
@@ -172,22 +181,44 @@ abstract class AbstractIndexer implements IndexerInterface
         }
     }
 
+    /**
+     * 🚨 Remembered in the cache, not asked on every save. Every post, reply,
+     * edit and profile change is indexed, and on a host with the sync queue
+     * that runs inside the visitor's request — so a HEAD per save doubled the
+     * round trips to the cluster on every write, for an answer that almost
+     * never changes. flush() forgets it, so a rebuild still re-creates.
+     */
     protected function ensureIndex(): void
     {
+        if ($this->cache->get($this->existsKey())) {
+            return;
+        }
+
         try {
             $res = $this->opensearch->request('HEAD', '/'.$this->indexName());
             if ($res['status'] === 404) {
                 $this->createIndex();
+            } elseif ($res['status'] < 300) {
+                $this->cache->put($this->existsKey(), true, self::EXISTS_TTL);
             }
         } catch (\Throwable $e) {
             // Unreachable cluster — the indexing call logs its own failure.
         }
     }
 
+    protected function existsKey(): string
+    {
+        return 'ernestdefoe-opensearch.exists.'.$this->indexName();
+    }
+
     protected function createIndex(): void
     {
         try {
             $res = $this->opensearch->request('PUT', '/'.$this->indexName(), $this->mapping());
+
+            if ($res['status'] < 300 || ($res['body']['error']['type'] ?? '') === 'resource_already_exists_exception') {
+                $this->cache->put($this->existsKey(), true, self::EXISTS_TTL);
+            }
 
             // resource_already_exists_exception means another request won the
             // race, which is a success as far as this is concerned.

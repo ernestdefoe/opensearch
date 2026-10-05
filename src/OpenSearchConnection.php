@@ -92,6 +92,9 @@ class OpenSearchConnection
         return $this->http = new Client([
             'base_uri' => $this->url().'/',
             'timeout' => 10,
+            // A cluster that is down should fail a search fast, not hold the
+            // visitor's request for the full ten seconds.
+            'connect_timeout' => 3,
             'verify' => $this->verifyTls(),
         ]);
     }
