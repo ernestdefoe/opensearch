@@ -109,8 +109,12 @@ directly.
 
 - [Packagist](https://packagist.org/packages/ernestdefoe/opensearch)
 - [GitHub](https://github.com/ernestdefoe/opensearch)
-- [Report a bug](https://github.com/ernestdefoe/opensearch/issues)
-- [Discuss on discuss.flarum.org](https://discuss.flarum.org/d/39756-open-search-built-with-ai)
+
+## Support
+
+- **Support forum:** [OpenSearch on ernestdefoe.online](https://ernestdefoe.online/d/78)
+- **Flarum community:** [OpenSearch on discuss.flarum.org](https://discuss.flarum.org/d/39756-open-search-built-with-ai)
+- **Bug reports:** [GitHub issues](https://github.com/ernestdefoe/opensearch/issues)
 
 ## License
 
