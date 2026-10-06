@@ -80,7 +80,10 @@ return [
         ->indexer(CommentPost::class, PostIndexer::class)
         ->indexer(User::class, UserIndexer::class),
 
-    new Extend\ServiceProvider(SearchProvider::class),
+    // 🚨 Through ->register(): a constructor argument is silently ignored,
+    // and the provider (filter mirroring, the connection singleton) never ran.
+    (new Extend\ServiceProvider())
+        ->register(SearchProvider::class),
 
     (new Extend\Console())
         ->command(IndexCommand::class),

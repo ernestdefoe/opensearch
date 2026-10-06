@@ -37,7 +37,14 @@ class SearchProvider extends AbstractServiceProvider
     public function register(): void
     {
         $this->container->singleton(OpenSearchConnection::class);
+    }
 
+    /**
+     * In boot(), not register(): extensions that load after this one add their
+     * filters later, and a mirror taken at register time missed them.
+     */
+    public function boot(): void
+    {
         $this->container->extend('flarum.search.filters', function (array $filters) {
             foreach (self::MIRROR as $mine => $parent) {
                 $filters[$mine] = array_values(array_unique(array_merge(
