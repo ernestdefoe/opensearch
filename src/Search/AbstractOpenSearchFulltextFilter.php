@@ -63,16 +63,15 @@ abstract class AbstractOpenSearchFulltextFilter extends AbstractFulltextFilter
         // Preserve relevance order as the default sort — applied only when the
         // request asked for no explicit sort. Portable CASE ordering, so this
         // works on MySQL, PostgreSQL and SQLite alike.
-        $cases = [];
-        $bindings = [];
-        foreach (array_values($ids) as $position => $id) {
-            $cases[] = 'WHEN ? THEN '.$position;
-            $bindings[] = $id;
-        }
-        $orderSql = 'CASE '.$this->idColumn().' '.implode(' ', $cases).' END';
-
-        $state->setDefaultSort(function ($q) use ($orderSql, $bindings) {
-            $q->orderByRaw($orderSql, $bindings);
+        // 🚨 The column goes through the grammar: raw SQL skips the table
+        // prefix, and a bare `discussions.id` broke every prefixed forum.
+        $column = $this->idColumn();
+        $state->setDefaultSort(function ($q) use ($column, $ids) {
+            $sql = 'CASE '.$q->getQuery()->getGrammar()->wrap($column);
+            foreach (array_keys($ids) as $position) {
+                $sql .= ' WHEN ? THEN '.(int) $position;
+            }
+            $q->orderByRaw($sql.' END', $ids);
         });
     }
 
