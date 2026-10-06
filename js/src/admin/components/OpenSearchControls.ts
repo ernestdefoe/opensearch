@@ -60,7 +60,7 @@ export default class OpenSearchControls extends Component<Attrs> {
         m('label', t('drivers_label')),
         m('.helpText', t('drivers_help')),
         ...DRIVERS.map(({ key, label }) => {
-          const driver = setting(key, 'database');
+          const driver = setting(key, 'default');
           return m(
             'div',
             { style: 'margin: 6px 0' },
@@ -68,7 +68,7 @@ export default class OpenSearchControls extends Component<Attrs> {
               Switch,
               {
                 state: driver() === 'opensearch',
-                onchange: (v: boolean) => driver(v ? 'opensearch' : 'database'),
+                onchange: (v: boolean) => driver(v ? 'opensearch' : 'default'),
               },
               t(label)
             )
