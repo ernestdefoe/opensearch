@@ -19,6 +19,7 @@ use Flarum\Api\Resource\ForumResource;
 use Flarum\Api\Schema\Attribute;
 use Flarum\Discussion\Discussion;
 use Flarum\Extend;
+use Flarum\Post\CommentPost;
 use Flarum\Post\Post;
 use Flarum\Settings\SettingsRepositoryInterface;
 use Flarum\User\User;
@@ -68,8 +69,15 @@ return [
         ->indexer(Discussion::class, DiscussionIndexer::class)
         // Both post indexers are registered: PostReindexer refreshes the parent
         // discussion's document, PostIndexer maintains the separate posts index.
+        // 🚨 Under CommentPost as well as Post: core observes the exact class
+        // it is given, and a reply is saved as a CommentPost, whose model
+        // events (and its `hidden` event, declared only on CommentPost) a Post
+        // observer never hears. Under Post alone, no new reply, edit, hide or
+        // delete ever reached the index until the next full rebuild.
         ->indexer(Post::class, PostReindexer::class)
         ->indexer(Post::class, PostIndexer::class)
+        ->indexer(CommentPost::class, PostReindexer::class)
+        ->indexer(CommentPost::class, PostIndexer::class)
         ->indexer(User::class, UserIndexer::class),
 
     new Extend\ServiceProvider(SearchProvider::class),
