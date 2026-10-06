@@ -11,6 +11,7 @@
         }
     ],
     "support": {
+        "forum": "https://discuss.flarum.org/d/39756-open-search-built-with-ai",
         "issues": "https://github.com/ernestdefoe/opensearch/issues",
         "source": "https://github.com/ernestdefoe/opensearch"
     },
