@@ -2,6 +2,7 @@
 
 namespace Ernestdefoe\OpenSearch;
 
+use Flarum\Foundation\Config;
 use Flarum\Settings\SettingsRepositoryInterface;
 use GuzzleHttp\Client;
 
@@ -23,7 +24,8 @@ class OpenSearchConnection
     private ?Client $http = null;
 
     public function __construct(
-        protected SettingsRepositoryInterface $settings
+        protected SettingsRepositoryInterface $settings,
+        protected Config $config
     ) {
     }
 
@@ -62,12 +64,17 @@ class OpenSearchConnection
      * Keeps indices separate when several forums share one cluster. Falls back
      * to a slug of the forum host so two installs never clobber each other.
      * OpenSearch index names must be lowercase.
+     *
+     * 🚨 The host comes from config.php: Flarum 2 has no `forum_url` setting,
+     * and reading one gave every forum the same "flarum_" prefix. Installs
+     * that were already indexed under it keep it — a migration stores
+     * "flarum" as their prefix, so their indices are not orphaned.
      */
     public function prefix(): string
     {
         $prefix = $this->setting('index_prefix');
         if ($prefix === '') {
-            $prefix = parse_url((string) $this->settings->get('forum_url', ''), PHP_URL_HOST) ?: 'flarum';
+            $prefix = $this->config->url()->getHost() ?: 'flarum';
         }
 
         return preg_replace('/[^a-z0-9_]/', '_', strtolower($prefix)).'_';
