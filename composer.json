@@ -1,7 +1,14 @@
 {
     "name": "ernestdefoe/opensearch",
     "description": "OpenSearch (and Elasticsearch) search for Flarum 2 — a drop-in search driver with optional semantic search.",
-    "keywords": ["flarum", "search", "opensearch", "elasticsearch", "fulltext", "semantic"],
+    "keywords": [
+        "flarum",
+        "search",
+        "opensearch",
+        "elasticsearch",
+        "fulltext",
+        "semantic"
+    ],
     "type": "flarum-extension",
     "license": "MIT",
     "authors": [
@@ -24,6 +31,11 @@
             "Ernestdefoe\\OpenSearch\\": "src/"
         }
     },
+    "autoload-dev": {
+        "psr-4": {
+            "Ernestdefoe\\OpenSearch\\Tests\\": "tests/"
+        }
+    },
     "extra": {
         "flarum-extension": {
             "title": "OpenSearch",
@@ -38,6 +50,24 @@
     "config": {
         "sort-packages": true
     },
-    "minimum-stability": "dev",
+    "require-dev": {
+        "flarum/phpstan": "^2.0",
+        "flarum/testing": "^2.0"
+    },
+    "scripts": {
+        "test": [
+            "@test:integration"
+        ],
+        "test:integration": "phpunit -c tests/phpunit.integration.xml",
+        "test:setup": "@php tests/integration/setup.php",
+        "analyse:phpstan": "phpstan analyse"
+    },
+    "scripts-descriptions": {
+        "test": "Runs all tests.",
+        "test:integration": "Runs all integration tests.",
+        "test:setup": "Sets up a database for use with integration tests. Execute this only once.",
+        "analyse:phpstan": "Run static analysis"
+    },
+    "minimum-stability": "beta",
     "prefer-stable": true
 }
