@@ -86,8 +86,8 @@ export default class OpenSearchControls extends Component<Attrs> {
           this.testStatus === 'ok'
             ? m('span', { style: 'color: var(--success-color, green)' }, ['✓ ', t('test_ok'), this.testDetail ? ` (${this.testDetail})` : ''])
             : this.testStatus === 'fail'
-            ? m('span', { style: 'color: var(--error-color, #d83e3e)' }, ['✗ ', t('test_fail'), this.testDetail ? ` (${this.testDetail})` : ''])
-            : null,
+              ? m('span', { style: 'color: var(--error-color, #d83e3e)' }, ['✗ ', t('test_fail'), this.testDetail ? ` (${this.testDetail})` : ''])
+              : null,
         ]),
       ]),
 
