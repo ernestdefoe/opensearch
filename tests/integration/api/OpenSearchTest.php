@@ -223,6 +223,10 @@ class OpenSearchTest extends TestCase
         $this->assertContains(['index', 'localhost_posts', $postId], $cluster->bulkActions(), 'A CommentPost reaches the posts index');
         $this->assertContains(['index', 'localhost_discussions', '1'], $cluster->bulkActions(), 'and refreshes its discussion');
 
+        // Flarum 2.0 throttles a content edit made within seconds of the
+        // author's last post, so the reply is dated a minute back first.
+        Post::query()->whereKey($postId)->update(['created_at' => Carbon::now()->subMinute()]);
+
         // An edit saves only the post, so the discussion's document is
         // refreshed through the post.
         $cluster->requests = [];
