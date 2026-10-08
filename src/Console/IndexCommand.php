@@ -68,7 +68,7 @@ class IndexCommand extends AbstractCommand
 
         foreach ($indexers as $name => $indexer) {
             if ($flush) {
-                $this->info("Flushing $name…");
+                $this->info("Flushing {$name}…");
                 $indexer->flush();
             } else {
                 $this->info("Rebuilding $name — this can take a while on large forums…");
