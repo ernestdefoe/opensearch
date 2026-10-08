@@ -62,7 +62,7 @@ class UserIndexer extends AbstractIndexer
             $docs[(int) $u->id] = [
                 'username' => (string) $u->username,
                 'display_name' => (string) ($u->display_name ?? $u->username),
-                'joined_at' => (int) ($u->joined_at?->timestamp ?? 0),
+                'joined_at' => (int) ($u->joined_at->timestamp ?? 0),
             ];
         }
 

@@ -69,7 +69,7 @@ abstract class AbstractIndexer implements IndexerInterface
             return;
         }
 
-        $ids = array_values(array_filter(array_map(fn ($m) => (int) $m->id, $models)));
+        $ids = array_values(array_filter(array_map(fn ($m) => (int) $m->getKey(), $models)));
         if (empty($ids)) {
             return;
         }

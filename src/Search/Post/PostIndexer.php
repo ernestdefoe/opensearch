@@ -70,7 +70,7 @@ class PostIndexer extends AbstractIndexer
                 'discussion_id' => (int) $p->discussion_id,
                 'user_id' => (int) ($p->user_id ?? 0),
                 'number' => (int) ($p->number ?? 0),
-                'created_at' => (int) ($p->created_at?->timestamp ?? 0),
+                'created_at' => (int) ($p->created_at->timestamp ?? 0),
             ];
         }
 
