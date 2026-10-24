@@ -186,13 +186,32 @@ class OpenSearchTest extends TestCase
     }
 
     #[Test]
-    public function a_cluster_that_is_down_returns_no_results_rather_than_an_error()
+    public function a_cluster_that_is_down_falls_back_to_the_database_search()
     {
         $this->useForDiscussions();
         $cluster = $this->cluster();
         $cluster->down = true;
 
-        $this->assertSame([], $this->search('anything'));
+        $this->assertSame(['3'], $this->search('third'));
+    }
+
+    #[Test]
+    public function an_unreachable_cluster_falls_back_to_the_database_search()
+    {
+        // The real HTTP client, pointed at a port nothing listens on.
+        $this->setting('ernestdefoe-opensearch.url', 'http://127.0.0.1:1');
+        $this->useForDiscussions();
+
+        $this->assertSame(['4'], $this->search('fourth'));
+        $this->assertSame([], $this->search('hidden'), 'The database search still hides what the actor cannot see');
+    }
+
+    #[Test]
+    public function search_falls_back_to_the_database_before_the_cluster_is_configured()
+    {
+        $this->useForDiscussions();
+
+        $this->assertSame(['1'], $this->search('first'));
     }
 
     #[Test]

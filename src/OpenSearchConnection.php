@@ -5,6 +5,8 @@ namespace Ernestdefoe\OpenSearch;
 use Flarum\Foundation\Config;
 use Flarum\Settings\SettingsRepositoryInterface;
 use GuzzleHttp\Client;
+use Illuminate\Contracts\Cache\Repository as Cache;
+use Psr\Log\LoggerInterface;
 
 /**
  * Every call to the cluster goes through here, so the rest of the extension
@@ -21,11 +23,18 @@ use GuzzleHttp\Client;
  */
 class OpenSearchConnection
 {
+    /**
+     * How long one outage is reported as one log line.
+     */
+    protected const DOWN_TTL = 60;
+
     private ?Client $http = null;
 
     public function __construct(
         protected SettingsRepositoryInterface $settings,
-        protected Config $config
+        protected Config $config,
+        protected Cache $cache,
+        protected LoggerInterface $log
     ) {
     }
 
@@ -96,14 +105,29 @@ class OpenSearchConnection
             return $this->http;
         }
 
+        // A cluster that is down or stuck must fail a visitor's request fast:
+        // 2 s to connect, 2 s for the answer, then the search falls back to
+        // the database. The CLI (rebuilds, queue workers) gives a big _bulk
+        // longer to be processed.
         return $this->http = new Client([
             'base_uri' => $this->url().'/',
-            'timeout' => 10,
-            // A cluster that is down should fail a search fast, not hold the
-            // visitor's request for the full ten seconds.
-            'connect_timeout' => 3,
+            'timeout' => PHP_SAPI === 'cli' ? 30 : 2,
+            'connect_timeout' => 2,
             'verify' => $this->verifyTls(),
         ]);
+    }
+
+    /**
+     * Logs a failed call to the cluster once per outage, not once per
+     * request: the first failure sets a short-lived flag and later ones stay
+     * quiet until it expires. Only reached on failure, so it costs nothing
+     * while the cluster is up.
+     */
+    public function unreachable(string $what, string $reason): void
+    {
+        if ($this->cache->add('ernestdefoe-opensearch.down', true, self::DOWN_TTL)) {
+            $this->log->warning("[opensearch] $what failed: $reason. Until the cluster answers, searches use the database and changes are not indexed; `php flarum opensearch:index` catches the index up.");
+        }
     }
 
     /**

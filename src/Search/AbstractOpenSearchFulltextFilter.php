@@ -6,7 +6,6 @@ use Ernestdefoe\OpenSearch\OpenSearchConnection;
 use Flarum\Search\AbstractFulltextFilter;
 use Flarum\Search\Database\DatabaseSearchState;
 use Flarum\Search\SearchState;
-use Psr\Log\LoggerInterface;
 
 /**
  * Runs the fulltext half of a search against the cluster: ask for matching IDs
@@ -15,9 +14,9 @@ use Psr\Log\LoggerInterface;
  *
  * Permissions never depend on this. The searcher's getQuery() has already
  * applied whereVisibleTo, so the cluster only narrows and orders candidates
- * that the actor may already see. On any failure the search degrades to "no
- * matches" rather than throwing, so a blip in the cluster never 500s a search
- * box.
+ * that the actor may already see. When the cluster is not configured, has no
+ * index yet or does not answer, core's database fulltext filter runs instead
+ * for that request, so an outage means slower results, never none.
  */
 abstract class AbstractOpenSearchFulltextFilter extends AbstractFulltextFilter
 {
@@ -29,12 +28,19 @@ abstract class AbstractOpenSearchFulltextFilter extends AbstractFulltextFilter
     protected const MAX_HITS = 250;
 
     public function __construct(
-        protected OpenSearchConnection $opensearch,
-        protected LoggerInterface $log
+        protected OpenSearchConnection $opensearch
     ) {
     }
 
     abstract protected function index(): string;
+
+    /**
+     * Core's database fulltext filter for this resource, used when the
+     * cluster cannot answer.
+     *
+     * @return class-string<AbstractFulltextFilter>
+     */
+    abstract protected function databaseFilter(): string;
 
     /**
      * Fields to match, in `field^boost` form.
@@ -51,6 +57,12 @@ abstract class AbstractOpenSearchFulltextFilter extends AbstractFulltextFilter
         $query = $state->getQuery();
 
         $ids = $this->matchingIds($value);
+
+        if ($ids === null) {
+            resolve($this->databaseFilter())->search($state, $value);
+
+            return;
+        }
 
         if (empty($ids)) {
             $query->whereRaw('0 = 1');
@@ -76,12 +88,12 @@ abstract class AbstractOpenSearchFulltextFilter extends AbstractFulltextFilter
     }
 
     /**
-     * @return int[] IDs in relevance order (empty on miss or error)
+     * @return int[]|null IDs in relevance order, or null when the cluster could not answer
      */
-    protected function matchingIds(string $value): array
+    protected function matchingIds(string $value): ?array
     {
         if (! $this->opensearch->configured()) {
-            return [];
+            return null;
         }
 
         try {
@@ -90,31 +102,29 @@ abstract class AbstractOpenSearchFulltextFilter extends AbstractFulltextFilter
                 '/'.$this->opensearch->indexName($this->index()).'/_search',
                 $this->query($value)
             );
-
-            // An index that was never built is not an error worth shouting
-            // about — it is the state of every fresh install before the first
-            // rebuild. Report no matches and let the admin notice the empty
-            // results, rather than filling the log on every keystroke.
-            if ($res['status'] === 404) {
-                return [];
-            }
-
-            if ($res['status'] >= 300) {
-                $this->log->error('[opensearch] '.$this->index().' search failed: '
-                    .($res['body']['error']['reason'] ?? 'HTTP '.$res['status']));
-
-                return [];
-            }
-
-            return array_values(array_filter(array_map(
-                fn ($hit) => (int) ($hit['_id'] ?? 0),
-                $res['body']['hits']['hits'] ?? []
-            )));
         } catch (\Throwable $e) {
-            $this->log->error('[opensearch] '.$this->index().' search failed: '.$e->getMessage());
+            $this->opensearch->unreachable($this->index().' search', $e->getMessage());
 
-            return [];
+            return null;
         }
+
+        // An index that was never built is the state of every fresh install
+        // before the first rebuild: not worth a log line, but the database
+        // can still answer.
+        if ($res['status'] === 404) {
+            return null;
+        }
+
+        if ($res['status'] >= 300) {
+            $this->opensearch->unreachable($this->index().' search', $res['body']['error']['reason'] ?? 'HTTP '.$res['status']);
+
+            return null;
+        }
+
+        return array_values(array_filter(array_map(
+            fn ($hit) => (int) ($hit['_id'] ?? 0),
+            $res['body']['hits']['hits'] ?? []
+        )));
     }
 
     /**

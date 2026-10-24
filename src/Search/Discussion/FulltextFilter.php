@@ -6,6 +6,11 @@ use Ernestdefoe\OpenSearch\Search\AbstractOpenSearchFulltextFilter;
 
 class FulltextFilter extends AbstractOpenSearchFulltextFilter
 {
+    protected function databaseFilter(): string
+    {
+        return \Flarum\Discussion\Search\FulltextFilter::class;
+    }
+
     protected function index(): string
     {
         return 'discussions';
