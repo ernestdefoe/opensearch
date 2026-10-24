@@ -19,6 +19,9 @@ class FakeCluster extends OpenSearchConnection
 
     public bool $down = false;
 
+    /** Called on every request, even while down. */
+    public ?\Closure $onRequest = null;
+
     public function configured(): bool
     {
         return true;
@@ -26,6 +29,10 @@ class FakeCluster extends OpenSearchConnection
 
     public function request(string $method, string $path, ?array $json = null, ?string $body = null, ?string $contentType = null): array
     {
+        if ($this->onRequest) {
+            ($this->onRequest)($method, $path);
+        }
+
         if ($this->down) {
             throw new \RuntimeException('Connection refused');
         }

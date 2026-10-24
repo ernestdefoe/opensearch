@@ -59,8 +59,15 @@ abstract class AbstractIndexer implements IndexerInterface
             return;
         }
 
-        $this->ensureIndex();
-        $this->bulkIndex($this->documentsFor($models));
+        // 🚨 One failed call ends the attempt: on a cluster that is down, the
+        // index check and every _bulk chunk each waited out the timeout in
+        // turn, and each logged a warning on every save.
+        try {
+            $this->ensureIndex();
+            $this->bulkIndex($this->documentsFor($models));
+        } catch (\Throwable $e) {
+            $this->opensearch->unreachable(static::index().' indexing', $e->getMessage());
+        }
     }
 
     public function delete(array $models): void
@@ -85,7 +92,7 @@ abstract class AbstractIndexer implements IndexerInterface
             // nothing to do — so bulk errors are not worth logging on deletes.
             $this->opensearch->request('POST', '/_bulk', null, $lines, 'application/x-ndjson');
         } catch (\Throwable $e) {
-            $this->log->warning('[opensearch] '.static::index().' delete failed: '.$e->getMessage());
+            $this->opensearch->unreachable(static::index().' delete', $e->getMessage());
         }
     }
 
@@ -101,7 +108,11 @@ abstract class AbstractIndexer implements IndexerInterface
         $this->baseQuery()
             ->orderBy('id')
             ->chunk(self::BUILD_CHUNK, function ($models) {
-                $this->bulkIndex($this->documentsFor($models->all()));
+                try {
+                    $this->bulkIndex($this->documentsFor($models->all()));
+                } catch (\Throwable $e) {
+                    $this->log->warning('[opensearch] '.static::index().' bulk index failed: '.$e->getMessage());
+                }
             });
 
         // Without this a rebuild "finishes" and an immediate search still sees
@@ -130,7 +141,11 @@ abstract class AbstractIndexer implements IndexerInterface
         return $this->opensearch->indexName(static::index());
     }
 
-    /** @param array<int|string, array<string, mixed>> $docs */
+    /**
+     * @param array<int|string, array<string, mixed>> $docs
+     *
+     * @throws \RuntimeException when the cluster cannot be reached
+     */
     protected function bulkIndex(array $docs): void
     {
         if (empty($docs)) {
@@ -144,17 +159,13 @@ abstract class AbstractIndexer implements IndexerInterface
                 $lines .= json_encode($doc)."\n";
             }
 
-            try {
-                $res = $this->opensearch->request('POST', '/_bulk', null, $lines, 'application/x-ndjson');
+            $res = $this->opensearch->request('POST', '/_bulk', null, $lines, 'application/x-ndjson');
 
-                // _bulk answers 200 even when every document in it failed, so
-                // the status proves nothing on its own — the `errors` flag is
-                // the only thing that says whether the content actually landed.
-                if ($res['status'] >= 300 || ! empty($res['body']['errors'])) {
-                    $this->log->warning('[opensearch] '.static::index().' bulk index reported errors: '.$this->firstBulkError($res));
-                }
-            } catch (\Throwable $e) {
-                $this->log->warning('[opensearch] '.static::index().' bulk index failed: '.$e->getMessage());
+            // _bulk answers 200 even when every document in it failed, so
+            // the status proves nothing on its own — the `errors` flag is
+            // the only thing that says whether the content actually landed.
+            if ($res['status'] >= 300 || ! empty($res['body']['errors'])) {
+                $this->log->warning('[opensearch] '.static::index().' bulk index reported errors: '.$this->firstBulkError($res));
             }
         }
     }
@@ -194,15 +205,12 @@ abstract class AbstractIndexer implements IndexerInterface
             return;
         }
 
-        try {
-            $res = $this->opensearch->request('HEAD', '/'.$this->indexName());
-            if ($res['status'] === 404) {
-                $this->createIndex();
-            } elseif ($res['status'] < 300) {
-                $this->cache->put($this->existsKey(), true, self::EXISTS_TTL);
-            }
-        } catch (\Throwable $e) {
-            // Unreachable cluster — the indexing call logs its own failure.
+        // An unreachable cluster throws, ending the save before the _bulk.
+        $res = $this->opensearch->request('HEAD', '/'.$this->indexName());
+        if ($res['status'] === 404) {
+            $this->createIndex();
+        } elseif ($res['status'] < 300) {
+            $this->cache->put($this->existsKey(), true, self::EXISTS_TTL);
         }
     }
 

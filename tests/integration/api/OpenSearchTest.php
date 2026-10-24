@@ -265,6 +265,46 @@ class OpenSearchTest extends TestCase
     }
 
     #[Test]
+    public function an_unreachable_cluster_never_blocks_a_post()
+    {
+        $this->setting('ernestdefoe-opensearch.url', 'http://127.0.0.1:1');
+
+        [$status, $body] = $this->json('POST', '/api/discussions', 2, ['json' => ['data' => [
+            'type' => 'discussions',
+            'attributes' => ['title' => 'Fresh topic', 'content' => 'A brand new first post'],
+        ]]]);
+        $this->assertSame(201, $status, json_encode($body));
+
+        [$status, $body] = $this->json('POST', '/api/posts', 1, ['json' => ['data' => [
+            'type' => 'posts',
+            'attributes' => ['content' => 'A reply while the index is away'],
+            'relationships' => ['discussion' => ['data' => ['type' => 'discussions', 'id' => '1']]],
+        ]]]);
+        $this->assertSame(201, $status, json_encode($body));
+    }
+
+    #[Test]
+    public function a_save_against_a_down_cluster_stops_at_the_first_failed_call()
+    {
+        $cluster = $this->cluster();
+        $calls = [];
+        $cluster->onRequest = function (string $method, string $path) use (&$calls) {
+            $calls[] = "$method $path";
+        };
+        $cluster->down = true;
+
+        [$status] = $this->json('POST', '/api/posts', 1, ['json' => ['data' => [
+            'type' => 'posts',
+            'attributes' => ['content' => 'A reply'],
+            'relationships' => ['discussion' => ['data' => ['type' => 'discussions', 'id' => '1']]],
+        ]]]);
+
+        $this->assertSame(201, $status);
+        $this->assertNotEmpty($calls, 'It tried');
+        $this->assertSame([], preg_grep('#/_bulk$#', $calls), 'Each indexer gives up after its first failed call');
+    }
+
+    #[Test]
     public function an_unconfigured_cluster_never_gets_in_the_way_of_posting()
     {
         [$status] = $this->json('POST', '/api/posts', 2, ['json' => ['data' => [
