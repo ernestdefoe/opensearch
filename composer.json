@@ -23,8 +23,9 @@
         "source": "https://github.com/ernestdefoe/opensearch"
     },
     "require": {
-        "php": "^8.2",
-        "flarum/core": "^2.0"
+        "php": "^8.3",
+        "flarum/core": "^2.0",
+        "guzzlehttp/guzzle": "^7.7"
     },
     "autoload": {
         "psr-4": {

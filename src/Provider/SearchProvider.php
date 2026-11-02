@@ -22,6 +22,12 @@ use Flarum\User\Search\UserSearcher;
  *
  * This affects result *refinement* only. Permissions never depend on it: every
  * searcher's getQuery() applies whereVisibleTo regardless of what is mirrored.
+ *
+ * Core has no public extender for "copy another searcher's filters", so this
+ * extends the same two bindings core's own Extend\SearchDriver extends
+ * ('flarum.search.filters' / 'flarum.search.mutators', bound in
+ * Search\SearchServiceProvider). If core ever renames them, the integration
+ * test core_filters_and_mutators_reach_the_opensearch_searchers fails in CI.
  */
 class SearchProvider extends AbstractServiceProvider
 {

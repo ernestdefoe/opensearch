@@ -2,6 +2,7 @@
 
 use Ernestdefoe\OpenSearch\Api\Controller\RebuildController;
 use Ernestdefoe\OpenSearch\Api\Controller\TestConnectionController;
+use Ernestdefoe\OpenSearch\Api\ForumAttributes;
 use Ernestdefoe\OpenSearch\Console\IndexCommand;
 use Ernestdefoe\OpenSearch\Provider\SearchProvider;
 use Ernestdefoe\OpenSearch\Search\Discussion\DiscussionIndexer;
@@ -16,12 +17,10 @@ use Ernestdefoe\OpenSearch\Search\User\FulltextFilter as UserFulltextFilter;
 use Ernestdefoe\OpenSearch\Search\User\OpenSearchUserSearcher;
 use Ernestdefoe\OpenSearch\Search\User\UserIndexer;
 use Flarum\Api\Resource\ForumResource;
-use Flarum\Api\Schema\Attribute;
 use Flarum\Discussion\Discussion;
 use Flarum\Extend;
 use Flarum\Post\CommentPost;
 use Flarum\Post\Post;
-use Flarum\Settings\SettingsRepositoryInterface;
 use Flarum\User\User;
 
 return [
@@ -32,28 +31,8 @@ return [
         ->js(__DIR__.'/js/dist/forum.js')
         ->css(__DIR__.'/less/forum.less'),
 
-    /*
-     * Tells the frontend which search tabs OpenSearch answers, so the search
-     * modal can show a badge. Booleans only — the cluster URL and password
-     * never leave the server.
-     */
     (new Extend\ApiResource(ForumResource::class))
-        ->fields(fn () => [
-            Attribute::make('openSearchSearch')->get(function () {
-                $settings = resolve(SettingsRepositoryInterface::class);
-
-                $resources = [
-                    'discussions' => Discussion::class,
-                    'users' => User::class,
-                    'posts' => Post::class,
-                ];
-
-                return array_keys(array_filter(
-                    $resources,
-                    fn (string $model) => $settings->get("search_driver_$model") === OpenSearchDriver::name()
-                ));
-            }),
-        ]),
+        ->fields(ForumAttributes::class),
 
     new Extend\Locales(__DIR__.'/locale'),
 

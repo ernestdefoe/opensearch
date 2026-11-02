@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@ernestdefoe/opensearch",
-  "description": "Typesense search for Flarum 2",
+  "description": "OpenSearch (and Elasticsearch) search for Flarum 2",
   "devDependencies": {
     "@flarum/prettier-config": "^1.0.0",
     "flarum-tsconfig": "^2.0.0",

@@ -335,4 +335,25 @@ class OpenSearchTest extends TestCase
 
         $this->assertSame(201, $status);
     }
+
+    #[Test]
+    public function core_filters_and_mutators_reach_the_opensearch_searchers()
+    {
+        $container = $this->app()->getContainer();
+
+        foreach ([
+            \Ernestdefoe\OpenSearch\Search\Discussion\OpenSearchDiscussionSearcher::class => \Flarum\Discussion\Search\DiscussionSearcher::class,
+            \Ernestdefoe\OpenSearch\Search\User\OpenSearchUserSearcher::class => \Flarum\User\Search\UserSearcher::class,
+            \Ernestdefoe\OpenSearch\Search\Post\OpenSearchPostSearcher::class => \Flarum\Post\Filter\PostSearcher::class,
+        ] as $mine => $core) {
+            $filters = $container->make('flarum.search.filters');
+            $this->assertNotEmpty($filters[$core] ?? [], "core registers filters for $core");
+            $this->assertEmpty(array_diff($filters[$core], $filters[$mine] ?? []), "$mine mirrors every filter of $core");
+
+            $mutators = $container->make('flarum.search.mutators');
+            foreach ($mutators[$core] ?? [] as $mutator) {
+                $this->assertContains($mutator, $mutators[$mine] ?? [], "$mine mirrors every mutator of $core");
+            }
+        }
+    }
 }
